@@ -1,0 +1,6 @@
+[submodule "third_part/mod-pbxproj"]
+	path = third_part/mod-pbxproj
+	url = https://github.com/jnguiavarch/mod-pbxproj.git
+[submodule "third_part/openstep-parser"]
+	path = third_part/openstep-parser
+	url = https://github.com/jnguiavarch/openstep-parser.git
