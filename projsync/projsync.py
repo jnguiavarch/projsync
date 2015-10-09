@@ -1,4 +1,5 @@
 import os.path
+import re
 import mod_pbxproj
 import xml.etree.ElementTree
 
@@ -32,7 +33,7 @@ class XcodeProj(Project):
         impl = mod_pbxproj.XcodeProject.Load(path, pure_python=True)
         return XcodeProj(impl)
 
-    def list_files(self, targetName, directory = None):
+    def list_files(self, targetName, directory=os.curdir):
 
             project = self.impl
 
@@ -79,55 +80,75 @@ class XcodeProj(Project):
 
 class VCXProj(Project):
 
-    def __init__(self, path, tree, ns = '{http://schemas.microsoft.com/developer/msbuild/2003}'):
+    def __init__(self, path, project, filters, ns = '{http://schemas.microsoft.com/developer/msbuild/2003}'):
         self.path = path
         self.source_root = os.path.dirname(path)
-        self.tree = tree
+        self.project = project
+        self.filters = filters
         self.ns = ns
+        if project.getroot().tag != self._add_ns('Project'):
+            raise Exception("Invalid Visual Studio Project " + path)
+        if filters.getroot().tag != self._add_ns('Project'):
+            raise Exception("Invalid Visual Studio Project " + path)
 
     @classmethod
     def Load(cls, path):
-        tree = xml.etree.ElementTree.parse(path)
-        project = tree.getroot()
-        if project.tag != '{http://schemas.microsoft.com/developer/msbuild/2003}Project':
-            raise Exception("Invalid Visual Studio Project " + path)
-        return VCXProj(path, tree)
+        project = xml.etree.ElementTree.parse(path)
+        filters = xml.etree.ElementTree.parse(path + ".filters")
+        return VCXProj(path, project, filters)
 
-    def resolve_path(self, path, directory = None):
+    def _add_ns(self, xpath):
+        newxpath, nsubst = re.subn('(^|/)([a-zA-Z_0-9]+)', '\\1' + self.ns + '\\2', xpath)
+        return newxpath
+
+    def resolve_path(self, path, directory=os.curdir):
         path = os.path.join(self.source_root, path.replace('\\', '/'))
         path = os.path.realpath(path)
         path = os.path.relpath(path, directory)
         return path
 
-    def list_files(self, targetName, directory = None):
+    def list_files(self, targetName, directory = os.curdir):
 
-        project = self.tree.getroot()
+        project = self.project
+        filters = self.filters
         ns = self.ns
+
+        p = filters.getroot()
+
+
+        groups = {}
 
         # get build source files
         buildSourceFilePaths = []
-        for f in project.findall(ns+'ItemGroup/'+ns+'ClCompile'):
-            path = f.get('Include')
-            if path:
-                buildSourceFilePaths.append(self.resolve_path(path, directory))
+        for f in p.findall(self._add_ns('ItemGroup/ClCompile')):
+            path_ = f.get('Include')
+            path = self.resolve_path(path_, directory)
+            buildSourceFilePaths.append(path)
+            g = f.findtext(self._add_ns('Filter')).split('\\')
+            groups[path] = g
         buildSourceFilePaths.sort()
 
         # get other referenced files
         otherReferenceFilePaths = []
-        for f in project.findall(ns+'ItemGroup/'+ns+'ClInclude'):
-            path = f.get('Include')
-            if path:
-                otherReferenceFilePaths.append(self.resolve_path(path, directory))
-        for f in project.findall(ns+'ItemGroup/'+ns+'None'):
-            path = f.get('Include')
-            if path:
-                otherReferenceFilePaths.append(self.resolve_path(path, directory))
+        otherReferenceFileGroups = {}
+        for f in p.findall(self._add_ns('ItemGroup/ClInclude')):
+            path_ = f.get('Include')
+            path = self.resolve_path(path_, directory)
+            otherReferenceFilePaths.append(path)
+            g = f.findtext(self._add_ns('Filter')).split('\\')
+            groups[path] = g
+        for f in p.findall(self._add_ns('ItemGroup/None')):
+            path_ = f.get('Include')
+            path = self.resolve_path(path_, directory)
+            otherReferenceFilePaths.append(path)
+            g = f.findtext(self._add_ns('Filter')).split('\\')
+            groups[path] = g
         otherReferenceFilePaths.sort()
 
         # list the files
         print "===== BUILD SOURCE FILES:"
         for p in buildSourceFilePaths:
-            print p
+            print '{0}\t{1}'.format(p, groups[p])
         print "===== OTHER REFERENCED FILES:"
         for p in otherReferenceFilePaths:
-            print p
+            print '{0}\t{1}'.format(p, groups[p])

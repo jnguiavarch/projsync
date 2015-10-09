@@ -9,8 +9,13 @@ def list_files(args, options):
     parser.add_argument('target', help='The target name')
     aa = parser.parse_args(args)
 
+    if options.directory == None:
+        directory = os.curdir
+    else:
+        directory = options.directory
+
     proj = projsync.Project.Load(aa.project)
-    proj.list_files(aa.target, options.directory)
+    proj.list_files(aa.target, directory)
 
 def main():
 
