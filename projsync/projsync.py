@@ -36,6 +36,21 @@ class XcodeProj(Project):
         impl = mod_pbxproj.XcodeProject.Load(path, pure_python=True)
         return XcodeProj(impl)
 
+    def children(self, group):
+        for child_id in group['children']:
+            yield self.impl.get_obj(child_id)
+
+    def child_groups(self, group):
+        for child_id in group['children']:
+            child = self.impl.get_obj(child_id)
+            if child.get('isa') == 'PBXGroup':
+                yield child
+
+    def print_group(self, group, prefix=""):
+        print prefix + group.get_name()
+        for child in self.child_groups(group):
+            self.print_group(child, prefix + "  ")
+
     def list_files(self, targetName, directory=os.curdir):
 
             project = self.impl
@@ -74,6 +89,9 @@ class XcodeProj(Project):
             otherReferenceFilePaths.sort()
 
             # list the files
+            print "===== GROUPS"
+            for group in self.child_groups(project.root_group):
+                self.print_group(group)
             print "===== BUILD SOURCE FILES:"
             for p in buildSourceFilePaths:
                 print p
