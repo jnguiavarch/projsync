@@ -11,6 +11,9 @@ class Project:
         if not os.path.exists(path):
             raise Exception("No such file " + path)
 
+        if path.endswith('/') or path.endswith('\\'):
+            path = path[0:-1]
+
         root, ext = os.path.splitext(path)
 
         if ext == '.xcodeproj':
