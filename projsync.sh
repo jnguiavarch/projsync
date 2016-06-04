@@ -10,10 +10,10 @@ if [ "$_OS" == "win" ]; then
 else
   pathsep=":"
 fi
-pythonpath=third_part/mod-pbxproj${pathsep}third_part/openstep-parser
+pythonpath="$origin/third_part/mod-pbxproj${pathsep}$origin/third_part/openstep-parser"
 if [ ! -z "$PYTHONPATH" ]; then
-  pythonpath=$pythonpath$pathsep$PYTHONPATH
+  pythonpath="$pythonpath$pathsep$PYTHONPATH"
 fi
 
 # run projsync.py
-PYTHONPATH="$pythonpath" python projsync "$@"
+PYTHONPATH="$pythonpath" python "$origin/projsync" "$@"
