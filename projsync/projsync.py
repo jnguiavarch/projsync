@@ -36,20 +36,28 @@ class XcodeProj(Project):
         impl = mod_pbxproj.XcodeProject.Load(path, pure_python=True)
         return XcodeProj(impl)
 
-    def children(self, group):
+    def children(self, project, group):
         for child_id in group['children']:
-            yield self.impl.get_obj(child_id)
+            yield project.get_obj(child_id)
 
-    def child_groups(self, group):
+    def child_groups(self, project, group):
         for child_id in group['children']:
-            child = self.impl.get_obj(child_id)
+            child = project.get_obj(child_id)
             if child.get('isa') == 'PBXGroup':
                 yield child
 
-    def print_group(self, group, prefix=""):
+    def print_group(self, project, group, prefix=""):
         print prefix + group.get_name()
-        for child in self.child_groups(group):
-            self.print_group(child, prefix + "  ")
+        for child in self.child_groups(project, group):
+            self.print_group(project, child, prefix + "  ")
+
+    def find_referenced_project(self, targetName):
+        for k, v in self.impl.objects.iteritems():
+            if v.get('isa') == 'PBXContainerItemProxy' and v.get('remoteInfo') == targetName:
+                fileRef = self.impl.get_obj(v.get('containerPortal'))
+                path = self.impl._resolve_path(fileRef)
+                return mod_pbxproj.XcodeProject.Load(os.path.join(path, "project.pbxproj"), pure_python=True)
+        return None
 
     def list_files(self, targetName, directory=os.curdir):
 
@@ -57,6 +65,10 @@ class XcodeProj(Project):
 
             # get the target
             targets = project.get_targets_by_name(targetName)
+            if len(targets) < 1:
+                project = self.find_referenced_project(targetName)
+                if project != None:
+                    targets = project.get_targets_by_name(targetName)
             if len(targets) < 1:
                 raise Exception("No such target " + targetName)
             elif len(targets) > 1: # is this possible?
@@ -90,8 +102,8 @@ class XcodeProj(Project):
 
             # list the files
             print "===== GROUPS"
-            for group in self.child_groups(project.root_group):
-                self.print_group(group)
+            for group in self.child_groups(project, project.root_group):
+                self.print_group(project, group)
             print "===== BUILD SOURCE FILES:"
             for p in buildSourceFilePaths:
                 print p
