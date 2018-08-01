@@ -26,14 +26,9 @@ class Project:
             raise Exception("Unsupported project type (" + ext + ")")
 
     def _list_repr(self, array, sep=';'):
-        str = ""
-        for s in array:
-            if len(str) > 0:
-                str = str + sep
-            if s:
-                str = str + s
-            else:
-                str = str + '<none>'
+        str = array[0]
+        for s in array[1:]:
+            str = str + sep + s
         return str
 
 
