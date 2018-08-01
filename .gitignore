@@ -1,1 +1,4 @@
 *.pyc
+/.uninstall_files
+/dist
+/mod_pbxproj_installer.egg-info
