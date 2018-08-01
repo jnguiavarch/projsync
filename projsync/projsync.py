@@ -22,6 +22,8 @@ class Project:
             return XcodeProj.Load(path)
         elif ext == '.vcxproj':
             return VCXProj.Load(path)
+        elif ext == '.sln':
+            return Sln.Load(path)
         else:
             raise Exception("Unsupported project type (" + ext + ")")
 
@@ -248,3 +250,39 @@ class VCXProj(Project):
         print "===== OTHER REFERENCED FILES:"
         for p in otherReferenceFilePaths:
             print '{0}\t{1}'.format(p, self._list_repr(groups[p]))
+
+class Sln(Project):
+
+    def __init__(self, path):
+        self.path = path
+        self._parse()
+
+    @classmethod
+    def Load(cls, path):
+        return Sln(path)
+
+    def _parse(self):
+        self.projects = {}
+        f = open(self.path, 'r')
+        while True:
+            line = f.readline()
+            if not line:
+                break
+            if line.startswith('Project('):
+                eq = line.index(" = ")
+                rhs = line[(eq+3):]
+                args = rhs.split(", ")
+                name = args[0][1:-1]
+                path = args[1][1:-1].replace('\\', '/')
+                if path.endswith('.vcxproj'):
+                    self.projects[name] = path
+
+    def list_files(self, targetName, directory = os.curdir):
+
+        if not targetName in self.projects:
+            raise Exception("no such target " + targetName)
+
+        dir = os.path.dirname(self.path)
+        path = os.path.join(dir, self.projects[targetName])
+
+        VCXProj.Load(path).list_files(targetName, directory)
