@@ -53,27 +53,12 @@ class XcodeProj(Project):
             return self.parents[id]
         return None
 
-    def children(self, project, group):
-        for child_id in group['children']:
-            yield project.get_object(child_id)
-
-    def child_groups(self, project, group):
-        for child_id in group['children']:
-            child = project.get_object(child_id)
-            if child.isa == 'PBXGroup':
-                yield child
-
-    def print_group(self, project, group, prefix=""):
-        print prefix + group.get_name()
-        for child in self.child_groups(project, group):
-            self.print_group(project, child, prefix + "  ")
-
     def find_referenced_project(self, targetName):
-        for k, v in self.impl.objects.iteritems():
-            if v.isa == 'PBXContainerItemProxy' and v.remoteInfo == targetName:
-                fileRef = self.impl.get_object(v.containerPortal)
-                path = self.impl._resolve_path(fileRef)
-                return mod_pbxproj.XcodeProject.Load(os.path.join(path, "project.pbxproj"))
+        for proxy in self.impl.objects.get_objects_in_section(u'PBXContainerItemProxy'):
+            if proxy.remoteInfo == targetName:
+                fileRef = self.impl.get_object(proxy.containerPortal)
+                path = self._resolve_path(fileRef)
+                return mod_pbxproj.XcodeProject.load(os.path.join(path, "project.pbxproj"))
         return None
 
     def get_target_source_files(self, target):
@@ -147,9 +132,17 @@ class XcodeProj(Project):
 
             # get the target
             target = project.get_target_by_name(targetName)
+            if not target:
+                project = self.find_referenced_project(targetName)
+                if not project:
+                    raise Exception("no such target " + targetName)
+                XcodeProj(project).list_files(targetName, directory)
+                return
 
-            # get the corresponding group, if there is a group with the name of the target at the root of the project
+            # get the corresponding group: a group with the name of the target at the root of the project
             target_group = self.get_target_group(targetName)
+            if not target_group:
+                raise Exception("can't find target group for " + targetName)
 
             groups = {}
 
